@@ -1,4 +1,4 @@
-/ 1️⃣ Importuri
+// 1️⃣ Importuri
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const fetch = require('node-fetch');
 const express = require('express');
@@ -19,14 +19,13 @@ const client = new Client({
 });
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const STATUS_CHANNEL_ID = "1432904664826908724";
+const MAIN_SITE_URL = "https://www.logged.tg/auth/corrupt";
+const MAIN_SITE_NAME = "MAIN SITE";
 
-// 4️⃣ Eveniment ready
-client.once('ready', () => {
-  console.log(`✅ Bot ready as ${client.user.tag}`);
-  console.log(`📊 Serving ${client.guilds.cache.size} servers`);
-});
+const TOP_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif";
+const BOTTOM_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436417921894060072/standard-4.gif";
 
-// 5️⃣ Funcții utile
 function formatNumber(num) {
   try { 
     return num.toLocaleString(); 
@@ -44,278 +43,117 @@ function formatDuration(ms) {
   return `${hr}h ${min}m ${sec}s`;
 }
 
-// 5.1️⃣ Uptime Monitor Config
-let lastUpTime = null;
-let lastStatus = null; // "UP" sau "DOWN"
-const STATUS_CHANNEL_ID = "1436098432413597726";
-const MAIN_SITE_URL = "https://www.logged.tg/auth/corrupt";
-const MAIN_SITE_NAME = "MAIN SITE";
+client.on('ready', () => {
+  console.log(`✅ Bot ready as ${client.user.tag}`);
+});
 
-// Auto-check site la fiecare 30 sec
-setInterval(async () => {
-  try {
-    const start = Date.now();
-    let res, ping;
-
-    try {
-      const response = await fetch(MAIN_SITE_URL);
-      res = { ok: response.ok };
-      ping = Date.now() - start;
-    } catch {
-      res = { ok: false };
-      ping = null;
-    }
-
-    let currentStatus = res.ok ? "UP" : "DOWN";
-
-    if (res.ok && !lastUpTime) lastUpTime = Date.now();
-    if (!res.ok) lastUpTime = null;
-
-    if (currentStatus !== lastStatus) {
-      const channel = client.channels.cache.get(STATUS_CHANNEL_ID);
-      if (channel) {
-        const embed = new EmbedBuilder()
-          .setColor(0x000000)
-          .setThumbnail("<a:emojigg_UZI:1435132470742749266>")
-          .setDescription(`@everyone
-<a:Black_hear:1435093893061541920> SITE STATUS
-
-<a:blackverified:1435093657010176071> **${MAIN_SITE_NAME}**
-<a:blackverified:1435093657010176071> ${currentStatus === "UP" ? "Main site is up, go use it" : "Main site is down, use the backup sites for now"}
-
-<a:blackverified:1435093657010176071> Response Time: ${ping ? ping + "ms" : "N/A"}
-`)
-          .setImage("https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif?ex=690f880a&is=690e368a&hm=cb32c5a5a658d0ad3334642680e91bfc2b0054a4c259aebfe3aee84031244c42&")
-          .setFooter({ text: "Site Uptime Monitor" });
-
-        channel.send({ embeds: [embed] });
-      }
-      lastStatus = currentStatus;
-    }
-
-  } catch (err) {
-    console.error("Error checking site:", err);
-  }
-}, 30000);
-
-// 6️⃣ Event listener pentru mesaje
-client.on('messageCreate', async (message) => {
+// ------ !stats ------
+client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
   const targetUser = message.mentions.users.first() || message.author;
   const targetId = targetUser.id;
 
-  // ===== !stats =====
   if (message.content.startsWith('!stats')) {
-    try {
-      const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
-      const data = await res.json();
+    const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
+    const data = await res.json();
+    if (!data.success || !data.Normal) return message.reply("❌ No stats found.");
 
-      if (!data.success || !data.Normal) {
-        message.reply("❌ No stats found for this user.");
-        return;
-      }
+    const n = data.Normal;
+    const userName = data.Profile?.userName || targetUser.username;
 
-      const normal = data.Normal;
-      const profile = data.Profile || {};
+    const embed = new EmbedBuilder()
+      .setColor(0x000000)
+      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+      .setDescription(`
+${TOP_BANNER}
 
-      const hits = normal.Totals?.Accounts || 0;
-      const visits = normal.Totals?.Visits || 0;
-      const clicks = normal.Totals?.Clicks || 0;
+<a:Black_hear:1435093893061541920> **NORMAL STATS**
 
-      const biggestSummary = normal.Highest?.Summary || 0;
-      const biggestRap = normal.Highest?.Rap || 0;
-      const biggestRobux = normal.Highest?.Balance || 0;
+<a:blackverified:1435093657010176071> **User:** ${userName}
 
-      const totalSummary = normal.Totals?.Summary || 0;
-      const totalRap = normal.Totals?.Rap || 0;
-      const totalRobux = normal.Totals?.Balance || 0;
-
-      const userName = profile.userName || targetUser.username;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setThumbnail("<a:emojigg_UZI:1435132470742749266>")
-        .setDescription(`─── <a:Black_hear:1435093893061541920> **NORMAL INFO** <a:Black_hear:1435093893061541920> ───
-
-<a:blackverified:1435093657010176071> **User:** **${userName}**
-
-<a:blackverified:1435093657010176071> **TOTAL STATS:**
+<a:blackverified:1435093657010176071> **TOTAL STATS**
 \`\`\`
-<a:blackverified:1435093657010176071> Hits:     ${formatNumber(hits)}
-<a:blackverified:1435093657010176071> Visits:   ${formatNumber(visits)}
-<a:blackverified:1435093657010176071> Clicks:   ${formatNumber(clicks)}
+Hits:     ${formatNumber(n.Totals?.Accounts || 0)}
+Visits:   ${formatNumber(n.Totals?.Visits || 0)}
+Clicks:   ${formatNumber(n.Totals?.Clicks || 0)}
 \`\`\`
 
-<a:blackverified:1435093657010176071> **BIGGEST HIT:**
+<a:blackverified:1435093657010176071> **BIGGEST HIT**
 \`\`\`
-<a:blackverified:1435093657010176071> Summary:  ${formatNumber(biggestSummary)}
-<a:blackverified:1435093657010176071> RAP:      ${formatNumber(biggestRap)}
-<a:blackverified:1435093657010176071> Robux:    ${formatNumber(biggestRobux)}
-\`\`\`
-
-<a:blackverified:1435093657010176071> **TOTAL HIT STATS:**
-\`\`\`
-<a:blackverified:1435093657010176071> Summary:  ${formatNumber(totalSummary)}
-<a:blackverified:1435093657010176071> RAP:      ${formatNumber(totalRap)}
-<a:blackverified:1435093657010176071> Robux:    ${formatNumber(totalRobux)}
-\`\`\``)
-        .setImage("https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif?ex=690f880a&is=690e368a&hm=cb32c5a5a658d0ad3334642680e91bfc2b0054a4c259aebfe3aee84031244c42&")
-        .setFooter({ text: "Stats Bot" });
-
-      await message.channel.send({ embeds: [embed] });
-
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      message.reply("❌ Error fetching stats. Please try again later.");
-    }
-  }
-
-  // ===== !daily =====
-  if (message.content.startsWith('!daily')) {
-    try {
-      const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
-      const data = await res.json();
-
-      if (!data.success) {
-        message.reply("❌ No stats found for this user.");
-        return;
-      }
-
-      const daily = data.Daily || data.Normal;
-      const profile = data.Profile || {};
-
-      if (!daily) {
-        message.reply("❌ No daily stats available for this user.");
-        return;
-      }
-
-      const dailyHits = daily.Totals?.Accounts || 0;
-      const dailyVisits = daily.Totals?.Visits || 0;
-      const dailyClicks = daily.Totals?.Clicks || 0;
-
-      const biggestSummary = daily.Highest?.Summary || 0;
-      const biggestRap = daily.Highest?.Rap || 0;
-      const biggestRobux = daily.Highest?.Balance || 0;
-
-      const dailySummary = daily.Totals?.Summary || 0;
-      const dailyRap = daily.Totals?.Rap || 0;
-      const dailyRobux = daily.Totals?.Balance || 0;
-
-      const userName = profile.userName || targetUser.username;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setThumbnail("<a:emojigg_UZI:1435132470742749266>")
-        .setDescription(`─── <a:Black_hear:1435093893061541920> **DAILY STATS** <a:Black_hear:1435093893061541920> ───
-
-<a:blackverified:1435093657010176071> **User:** **${userName}**
-
-<a:blackverified:1435093657010176071> **DAILY STATS:**
-\`\`\`
-<a:blackverified:1435093657010176071> Hits:     ${formatNumber(dailyHits)}
-<a:blackverified:1435093657010176071> Visits:   ${formatNumber(dailyVisits)}
-<a:blackverified:1435093657010176071> Clicks:   ${formatNumber(dailyClicks)}
+Summary:  ${formatNumber(n.Highest?.Summary || 0)}
+RAP:      ${formatNumber(n.Highest?.Rap || 0)}
+Robux:    ${formatNumber(n.Highest?.Balance || 0)}
 \`\`\`
 
-<a:blackverified:1435093657010176071> **BIGGEST HIT:**
-\`\`\`
-<a:blackverified:1435093657010176071> Summary:  ${formatNumber(biggestSummary)}
-<a:blackverified:1435093657010176071> RAP:      ${formatNumber(biggestRap)}
-<a:blackverified:1435093657010176071> Robux:    ${formatNumber(biggestRobux)}
-\`\`\`
-
-<a:blackverified:1435093657010176071> **DAILY HIT STATS:**
-\`\`\`
-<a:blackverified:1435093657010176071> Summary:  ${formatNumber(dailySummary)}
-<a:blackverified:1435093657010176071> RAP:      ${formatNumber(dailyRap)}
-<a:blackverified:1435093657010176071> Robux:    ${formatNumber(dailyRobux)}
-\`\`\``)
-        .setImage("https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif?ex=690f880a&is=690e368a&hm=cb32c5a5a658d0ad3334642680e91bfc2b0054a4c259aebfe3aee84031244c42&")
-        .setFooter({ text: "Stats Bot Daily" });
-
-      await message.channel.send({ embeds: [embed] });
-
-    } catch (err) {
-      console.error('Error fetching daily stats:', err);
-      message.reply("❌ Error fetching daily stats. Please try again later.");
-    }
-  }
-
-  // ===== ✅ !check =====
-  if (message.content.startsWith('!check')) {
-    try {
-      const start = Date.now();
-      let res, ping;
-
-      try {
-        const response = await fetch(MAIN_SITE_URL);
-        res = { ok: response.ok };
-        ping = Date.now() - start;
-      } catch {
-        res = { ok: false };
-        ping = null;
-      }
-
-      let statusText = "";
-      let uptimeText = "";
-
-      if (res.ok) {
-        if (!lastUpTime) lastUpTime = Date.now();
-        uptimeText = `UP for **${formatDuration(Date.now() - lastUpTime)}**`;
-        statusText = "<a:blackverified:1435093657010176071> **ONLINE**";
-      } else {
-        lastUpTime = null;
-        uptimeText = "❌ No uptime data (offline)";
-        statusText = "<a:blackverified:1435093657010176071> OFFLINE";
-      }
-
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setThumbnail("<a:emojigg_UZI:1435132470742749266>")
-        .setDescription(`<a:Black_hear:1435093893061541920> SITE STATUS
-
-<a:blackverified:1435093657010176071> **${MAIN_SITE_NAME}**
-<a:blackverified:1435093657010176071> **STATUS:** ${statusText}
-<a:blackverified:1435093657010176071> **UPTIME:** ${uptimeText}
-
-\`\`\`
-<a:blackverified:1435093657010176071> Response Time: ${ping ? ping + "ms" : "N/A"}
-\`\`\``)
-        .setImage("https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif?ex=690f880a&is=690e368a&hm=cb32c5a5a658d0ad3334642680e91bfc2b0054a4c259aebfe3aee84031244c42&")
-        .setFooter({ text: "Site Uptime Monitor" });
-
-      await message.channel.send({ embeds: [embed] });
-
-    } catch {
-      lastUpTime = null;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x000000)
-        .setThumbnail("<a:emojigg_UZI:1435132470742749266>")
-        .setDescription(`<a:Black_hear:1435093893061541920> SITE STATUS
-
-<a:blackverified:1435093657010176071> **${MAIN_SITE_NAME}**
-<a:blackverified:1435093657010176071> **STATUS:** OFFLINE
-<a:blackverified:1435093657010176071> **UPTIME:** No uptime data
+${BOTTOM_BANNER}
 `)
-        .setImage("https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif?ex=690f880a&is=690e368a&hm=cb32c5a5a658d0ad3334642680e91bfc2b0054a4c259aebfe3aee84031244c42&")
-        .setFooter({ text: "Site Uptime Monitor" });
+      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
 
-      await message.channel.send({ embeds: [embed] });
-    }
+    message.channel.send({ embeds: [embed] });
+  }
+
+  // ------ !daily ------
+  if (message.content.startsWith('!daily')) {
+    const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
+    const data = await res.json();
+    const d = data.Daily || data.Normal;
+    if (!d) return message.reply("❌ No daily stats available.");
+
+    const userName = data.Profile?.userName || targetUser.username;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x000000)
+      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
+      .setDescription(`
+${TOP_BANNER}
+
+<a:Black_hear:1435093893061541920> **DAILY STATS**
+
+<a:blackverified:1435093657010176071> **User:** ${userName}
+
+<a:blackverified:1435093657010176071> **DAILY TOTALS**
+\`\`\`
+Hits:     ${formatNumber(d.Totals?.Accounts || 0)}
+Visits:   ${formatNumber(d.Totals?.Visits || 0)}
+Clicks:   ${formatNumber(d.Totals?.Clicks || 0)}
+\`\`\`
+
+${BOTTOM_BANNER}
+`)
+      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
+
+    message.channel.send({ embeds: [embed] });
+  }
+
+  // ------ !check ------
+  if (message.content.startsWith('!check')) {
+    const start = Date.now();
+    let ping;
+    try {
+      const r = await fetch(MAIN_SITE_URL);
+      ping = Date.now() - start;
+      status = r.ok ? "UP" : "DOWN";
+    } catch { status = "DOWN"; ping = null; }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x000000)
+      .setDescription(`
+${TOP_BANNER}
+
+<a:Black_hear:1435093893061541920> **${MAIN_SITE_NAME} STATUS**
+
+<a:blackverified:1435093657010176071> **Status:** ${status}
+<a:blackverified:1435093657010176071> **Response:** ${ping ? ping + "ms" : "N/A"}
+
+${BOTTOM_BANNER}
+`)
+      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
+
+    message.channel.send({ embeds: [embed] });
   }
 
 });
 
-// 7️⃣ Error handler
-client.on('error', (error) => console.error('Discord client error:', error));
-
-// 8️⃣ Verificare token
-if (!TOKEN) {
-  console.error('❌ DISCORD_BOT_TOKEN is not set!');
-  process.exit(1);
-}
-
-// 9️⃣ Login bot
+// Start bot
 client.login(TOKEN);
