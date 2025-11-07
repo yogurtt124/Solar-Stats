@@ -19,141 +19,239 @@ const client = new Client({
 });
 
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
-const STATUS_CHANNEL_ID = "1432904664826908724";
-const MAIN_SITE_URL = "https://www.logged.tg/auth/corrupt";
-const MAIN_SITE_NAME = "MAIN SITE";
 
+// 4️⃣ Config embed + site
+const ANNOUNCE_CHANNEL_ID = "1432904664826908724";
+const SITE_URL = "https://www.logged.tg/auth/solarv2";
 const TOP_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif";
 const BOTTOM_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436417921894060072/standard-4.gif";
+const THUMBNAIL_EMOJI = "https://cdn.discordapp.com/emojis/1435132470742749266.png";
 
+let lastStatus = null;
+
+// 5️⃣ Functii utile
 function formatNumber(num) {
-  try { 
-    return num.toLocaleString(); 
-  } catch { 
-    return "0"; 
-  }
+  try { return num.toLocaleString(); } catch { return "0"; }
 }
-
 function formatDuration(ms) {
-  let sec = Math.floor(ms / 1000);
-  let min = Math.floor(sec / 60);
-  let hr = Math.floor(min / 60);
-  sec %= 60;
-  min %= 60;
+  let sec = Math.floor(ms/1000);
+  let min = Math.floor(sec/60);
+  let hr = Math.floor(min/60);
+  sec%=60; min%=60;
   return `${hr}h ${min}m ${sec}s`;
 }
 
-client.on('ready', () => {
+// 6️⃣ Functie check site si announce
+async function checkSite() {
+  const start = Date.now();
+  let res, ping;
+  try {
+    const response = await fetch(SITE_URL);
+    res = { ok: response.ok };
+    ping = Date.now() - start;
+  } catch {
+    res = { ok: false };
+    ping = null;
+  }
+
+  const currentStatus = res.ok ? "UP" : "DOWN";
+
+  if (currentStatus !== lastStatus) {
+    const channel = client.channels.cache.get(ANNOUNCE_CHANNEL_ID);
+    if (!channel) return console.error("Channel not found!");
+
+    const embed = new EmbedBuilder()
+      .setColor(currentStatus === "UP" ? 0x00FF00 : 0xFF0000)
+      .setThumbnail(THUMBNAIL_EMOJI)
+      .setDescription(`
+${TOP_BANNER}
+
+<a:Black_hear:1435093893061541920> **SITE STATUS**
+
+<a:blackverified:1435093657010176071> **STATUS:** ${currentStatus === "UP" ? "ONLINE ✅" : "OFFLINE ❌"}
+<a:blackverified:1435093657010176071> Response Time: ${ping ? ping + "ms" : "N/A"}
+
+${BOTTOM_BANNER}
+`)
+    await channel.send({ content: "@everyone", embeds: [embed] });
+    lastStatus = currentStatus;
+  }
+}
+
+// Check site la fiecare 30 sec
+setInterval(checkSite, 30000);
+
+// 7️⃣ Event ready
+client.once('ready', () => {
   console.log(`✅ Bot ready as ${client.user.tag}`);
+  console.log(`📊 Monitoring site: ${SITE_URL}`);
+  checkSite(); // check initial la start
 });
 
-// ------ !stats ------
-client.on('messageCreate', async message => {
+// 8️⃣ Event listener comenzi
+client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   const targetUser = message.mentions.users.first() || message.author;
   const targetId = targetUser.id;
 
+  // ===== !stats =====
   if (message.content.startsWith('!stats')) {
-    const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
-    const data = await res.json();
-    if (!data.success || !data.Normal) return message.reply("❌ No stats found.");
+    try {
+      const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
+      const data = await res.json();
 
-    const n = data.Normal;
-    const userName = data.Profile?.userName || targetUser.username;
+      if (!data.success || !data.Normal) {
+        message.reply("❌ No stats found for this user.");
+        return;
+      }
 
-    const embed = new EmbedBuilder()
-      .setColor(0x000000)
-      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
-      .setDescription(`
-${TOP_BANNER}
+      const normal = data.Normal;
+      const profile = data.Profile || {};
+      const hits = normal.Totals?.Accounts || 0;
+      const visits = normal.Totals?.Visits || 0;
+      const clicks = normal.Totals?.Clicks || 0;
+      const biggestSummary = normal.Highest?.Summary || 0;
+      const biggestRap = normal.Highest?.Rap || 0;
+      const biggestRobux = normal.Highest?.Balance || 0;
+      const totalSummary = normal.Totals?.Summary || 0;
+      const totalRap = normal.Totals?.Rap || 0;
+      const totalRobux = normal.Totals?.Balance || 0;
+      const userName = profile.userName || targetUser.username;
 
-<a:Black_hear:1435093893061541920> **NORMAL STATS**
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 128 }))
+        .setDescription(`─── <a:Black_hear:1435093893061541920> **NORMAL INFO** <a:Black_hear:1435093893061541920> ───
 
-<a:blackverified:1435093657010176071> **User:** ${userName}
+<a:blackverified:1435093657010176071> **User:** **${userName}**
 
-<a:blackverified:1435093657010176071> **TOTAL STATS**
+<a:blackverified:1435093657010176071> **TOTAL STATS:**
 \`\`\`
-Hits:     ${formatNumber(n.Totals?.Accounts || 0)}
-Visits:   ${formatNumber(n.Totals?.Visits || 0)}
-Clicks:   ${formatNumber(n.Totals?.Clicks || 0)}
+Hits:     ${formatNumber(hits)}
+Visits:   ${formatNumber(visits)}
+Clicks:   ${formatNumber(clicks)}
 \`\`\`
 
-<a:blackverified:1435093657010176071> **BIGGEST HIT**
+<a:blackverified:1435093657010176071> **BIGGEST HIT:**
 \`\`\`
-Summary:  ${formatNumber(n.Highest?.Summary || 0)}
-RAP:      ${formatNumber(n.Highest?.Rap || 0)}
-Robux:    ${formatNumber(n.Highest?.Balance || 0)}
+Summary:  ${formatNumber(biggestSummary)}
+RAP:      ${formatNumber(biggestRap)}
+Robux:    ${formatNumber(biggestRobux)}
 \`\`\`
 
-${BOTTOM_BANNER}
-`)
-      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
+<a:blackverified:1435093657010176071> **TOTAL HIT STATS:**
+\`\`\`
+Summary:  ${formatNumber(totalSummary)}
+RAP:      ${formatNumber(totalRap)}
+Robux:    ${formatNumber(totalRobux)}
+\`\`\``)
+        .setImage(TOP_BANNER)
+        .setFooter({ text: "Stats Bot" });
 
-    message.channel.send({ embeds: [embed] });
+      await message.channel.send({ embeds: [embed] });
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ Error fetching stats.");
+    }
   }
 
-  // ------ !daily ------
+  // ===== !daily =====
   if (message.content.startsWith('!daily')) {
-    const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
-    const data = await res.json();
-    const d = data.Daily || data.Normal;
-    if (!d) return message.reply("❌ No daily stats available.");
+    try {
+      const res = await fetch(`https://api.injuries.lu/v1/public/user?userId=${targetId}`);
+      const data = await res.json();
+      if (!data.success) { message.reply("❌ No stats found."); return; }
 
-    const userName = data.Profile?.userName || targetUser.username;
+      const daily = data.Daily || data.Normal;
+      const profile = data.Profile || {};
+      if (!daily) { message.reply("❌ No daily stats."); return; }
 
-    const embed = new EmbedBuilder()
-      .setColor(0x000000)
-      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
-      .setDescription(`
-${TOP_BANNER}
+      const hits = daily.Totals?.Accounts || 0;
+      const visits = daily.Totals?.Visits || 0;
+      const clicks = daily.Totals?.Clicks || 0;
+      const biggestSummary = daily.Highest?.Summary || 0;
+      const biggestRap = daily.Highest?.Rap || 0;
+      const biggestRobux = daily.Highest?.Balance || 0;
+      const totalSummary = daily.Totals?.Summary || 0;
+      const totalRap = daily.Totals?.Rap || 0;
+      const totalRobux = daily.Totals?.Balance || 0;
+      const userName = profile.userName || targetUser.username;
 
-<a:Black_hear:1435093893061541920> **DAILY STATS**
+      const embed = new EmbedBuilder()
+        .setColor(0x000000)
+        .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 128 }))
+        .setDescription(`─── <a:Black_hear:1435093893061541920> **DAILY STATS** <a:Black_hear:1435093893061541920> ───
 
-<a:blackverified:1435093657010176071> **User:** ${userName}
+<a:blackverified:1435093657010176071> **User:** **${userName}**
 
-<a:blackverified:1435093657010176071> **DAILY TOTALS**
+<a:blackverified:1435093657010176071> **DAILY STATS:**
 \`\`\`
-Hits:     ${formatNumber(d.Totals?.Accounts || 0)}
-Visits:   ${formatNumber(d.Totals?.Visits || 0)}
-Clicks:   ${formatNumber(d.Totals?.Clicks || 0)}
+Hits:     ${formatNumber(hits)}
+Visits:   ${formatNumber(visits)}
+Clicks:   ${formatNumber(clicks)}
 \`\`\`
 
-${BOTTOM_BANNER}
-`)
-      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
+<a:blackverified:1435093657010176071> **BIGGEST HIT:**
+\`\`\`
+Summary:  ${formatNumber(biggestSummary)}
+RAP:      ${formatNumber(biggestRap)}
+Robux:    ${formatNumber(biggestRobux)}
+\`\`\`
 
-    message.channel.send({ embeds: [embed] });
+<a:blackverified:1435093657010176071> **DAILY HIT STATS:**
+\`\`\`
+Summary:  ${formatNumber(totalSummary)}
+RAP:      ${formatNumber(totalRap)}
+Robux:    ${formatNumber(totalRobux)}
+\`\`\``)
+        .setImage(TOP_BANNER)
+        .setFooter({ text: "Stats Bot Daily" });
+
+      await message.channel.send({ embeds: [embed] });
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ Error fetching daily stats.");
+    }
   }
 
-  // ------ !check ------
+  // ===== !check =====
   if (message.content.startsWith('!check')) {
     const start = Date.now();
-    let ping;
-    try {
-      const r = await fetch(MAIN_SITE_URL);
+    let res, ping;
+    try { 
+      const response = await fetch(SITE_URL);
+      res = { ok: response.ok };
       ping = Date.now() - start;
-      status = r.ok ? "UP" : "DOWN";
-    } catch { status = "DOWN"; ping = null; }
+    } catch { res = { ok: false }; ping = null; }
+
+    const statusText = res.ok ? "ONLINE ✅" : "OFFLINE ❌";
+    const uptimeText = res.ok && lastStatus ? `UP for **${formatDuration(Date.now() - lastStatus)}**` : "No uptime data";
 
     const embed = new EmbedBuilder()
-      .setColor(0x000000)
+      .setColor(res.ok ? 0x00FF00 : 0xFF0000)
+      .setThumbnail(THUMBNAIL_EMOJI)
       .setDescription(`
 ${TOP_BANNER}
 
-<a:Black_hear:1435093893061541920> **${MAIN_SITE_NAME} STATUS**
+<a:Black_hear:1435093893061541920> **SITE STATUS**
 
-<a:blackverified:1435093657010176071> **Status:** ${status}
-<a:blackverified:1435093657010176071> **Response:** ${ping ? ping + "ms" : "N/A"}
+<a:blackverified:1435093657010176071> **STATUS:** ${statusText}
+<a:blackverified:1435093657010176071> **UPTIME:** ${uptimeText}
+<a:blackverified:1435093657010176071> Response Time: ${ping ? ping + "ms" : "N/A"}
 
 ${BOTTOM_BANNER}
 `)
-      .setThumbnail("https://cdn.discordapp.com/emojis/1435132470742749266.png");
+      .setFooter({ text: "Site Uptime Monitor" });
 
-    message.channel.send({ embeds: [embed] });
+    await message.channel.send({ embeds: [embed] });
   }
 
 });
 
-// Start bot
+// 9️⃣ Error handler
+client.on('error', console.error);
+
+// 10️⃣ Login
+if (!TOKEN) { console.error('❌ DISCORD_BOT_TOKEN is not set!'); process.exit(1); }
 client.login(TOKEN);
